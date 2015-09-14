@@ -38,6 +38,12 @@ type Maze struct {
 	StepsTaken int
 }
 
+//This type should hold a possible candidate for the tresure with the number of steps needed to reach it.
+type targetCandidate struct {
+	Coordinate mazelib.Coordinate
+	StepsTaken int
+}
+
 // Tracking the current maze being solved
 
 // WARNING: This approach is not safe for concurrent use
@@ -196,7 +202,7 @@ func (m *Maze) SetStartPoint(x, y int) error {
 	}
 
 	r.Start = true
-	m.icarus = mazelib.Coordinate{x, y}
+	m.icarus = mazelib.Coordinate{X: x, Y: y}
 	return nil
 }
 
@@ -213,7 +219,7 @@ func (m *Maze) SetTreasure(x, y int) error {
 	}
 
 	r.Treasure = true
-	m.end = mazelib.Coordinate{x, y}
+	m.end = mazelib.Coordinate{X: x, Y: y}
 	return nil
 }
 
@@ -254,7 +260,7 @@ func (m *Maze) MoveLeft() error {
 		return err
 	}
 
-	m.icarus = mazelib.Coordinate{x - 1, y}
+	m.icarus = mazelib.Coordinate{X: x - 1, Y: y}
 	m.StepsTaken++
 	return nil
 }
@@ -296,7 +302,7 @@ func (m *Maze) MoveUp() error {
 		return err
 	}
 
-	m.icarus = mazelib.Coordinate{x, y - 1}
+	m.icarus = mazelib.Coordinate{X: x, Y: y - 1}
 	m.StepsTaken++
 	return nil
 }
@@ -365,5 +371,72 @@ func createMaze() *Maze {
 	// You need to Add and Remove walls as needed.
 	// Use the mazelib.AddWall & mazelib.RmWall to do this
 
-	return emptyMaze()
+	maze := fullMaze()
+	w := maze.Width()
+	h := maze.Height()
+	x := rand.Intn(w)
+	y := rand.Intn(h)
+
+	co := mazelib.Coordinate{X: x, Y: y}
+	maze.SetStartPoint(x, y)
+
+	result := carvePathes(co, maze, 0)
+	maze.SetTreasure(result.Coordinate.X, result.Coordinate.Y)
+
+	return maze
+}
+func carvePathes(co mazelib.Coordinate, maze mazelib.MazeI, pathLength int) targetCandidate {
+	room, _ := maze.GetRoom(co.X, co.Y)
+	room.Visited = true
+	deadEnd := true
+
+	var currenttargetCandidate targetCandidate
+	neighbors := getUnvisitedNeighbors(co, maze)
+	for len(neighbors) > 0 {
+		deadEnd = false
+		randomNeighbor := neighbors[rand.Intn(len(neighbors))]
+		neighborRoom, _ := maze.GetRoom(randomNeighbor.X, randomNeighbor.Y)
+		switch {
+		case randomNeighbor.Y == co.Y-1:
+			room.RmWall(mazelib.N)
+			neighborRoom.RmWall(mazelib.S)
+		case randomNeighbor.Y == co.Y+1:
+			room.RmWall(mazelib.S)
+			neighborRoom.RmWall(mazelib.N)
+		case randomNeighbor.X == co.X-1:
+			room.RmWall(mazelib.W)
+			neighborRoom.RmWall(mazelib.E)
+		case randomNeighbor.X == co.X+1:
+			room.RmWall(mazelib.E)
+			neighborRoom.RmWall(mazelib.W)
+		}
+
+		result := carvePathes(randomNeighbor, maze, pathLength+1)
+		if currenttargetCandidate.StepsTaken < result.StepsTaken {
+			currenttargetCandidate = result
+		}
+		neighbors = getUnvisitedNeighbors(co, maze)
+	}
+	if deadEnd {
+		currenttargetCandidate = targetCandidate{co, pathLength}
+	}
+	return currenttargetCandidate
+}
+func getUnvisitedNeighbors(co mazelib.Coordinate, maze mazelib.MazeI) []mazelib.Coordinate {
+	coordinates := []mazelib.Coordinate{
+		mazelib.Coordinate{co.X, co.Y - 1},
+		mazelib.Coordinate{co.X, co.Y + 1},
+		mazelib.Coordinate{co.X + 1, co.Y},
+		mazelib.Coordinate{co.X - 1, co.Y},
+	}
+	returnValues := []mazelib.Coordinate{}
+
+	for _, currentCo := range coordinates {
+		if cos, err := maze.GetRoom(currentCo.X, currentCo.Y); err == nil {
+			if cos.Visited == false {
+				returnValues = append(returnValues, currentCo)
+			}
+		}
+	}
+	return returnValues
 }

@@ -87,7 +87,8 @@ func Move(direction string) (mazelib.Survey, error) {
 			// os.Exit(1)
 			return rep.Survey, mazelib.ErrVictory
 		} else {
-			return rep.Survey, errors.New(rep.Message)
+			//don't return an error if no error occured
+			return rep.Survey, nil // errors.New(rep.Message)
 		}
 	}
 
@@ -115,12 +116,89 @@ func ToReply(in []byte) mazelib.Reply {
 	return *res
 }
 
-// TODO: This is where you work your magic
 func solveMaze() {
-	_ = awake() // Need to start with waking up to initialize a new maze
-	// You'll probably want to set this to a named value and start by figuring
-	// out which step to take next
+	survey := awake()
 
-	//TODO: Write your solver algorithm here
+	breadcrumbs := mazelib.NewStack(100)
+	Iterate(survey, breadcrumbs)
+}
 
+func Iterate(survey mazelib.Survey, breadcrumbs *mazelib.Stack) {
+	var err error
+	co := mazelib.Coordinate{0, 0}
+
+	//data structure to keep track of already visited rooms
+	visited := make(map[mazelib.Coordinate]bool)
+	//start from the cnter (0,0) and set it to visited
+	visited[co] = true
+	for true {
+
+		//If solution found
+		if err == mazelib.ErrVictory {
+			fmt.Printf("Solution with %d steps found\n", breadcrumbs.Len())
+			return
+		}
+		if err != nil {
+			fmt.Printf("An error happend: |%v|\n", err)
+			return
+		}
+		move, moveErr := getValidMove(survey, visited, co)
+
+		//a move forward is possible
+		if moveErr == nil {
+			survey, co, err = executeMove(move, breadcrumbs, visited, co)
+		} else if undoObj, stackErr := breadcrumbs.Pop(); stackErr != mazelib.ErrEmptyStack {
+			// back up one step and try again
+			undo := ReverseMove(undoObj.(string))
+			survey, err = Move(undo)
+			co = co.TranformByMove(undo)
+		} else {
+			fmt.Println("No solution found.")
+			return
+		}
+
+	}
+}
+//execute move take a possible move to execute,
+//keep track of it in the breadcrumbs and update coordination
+func executeMove(move string, breadcrumbs *mazelib.Stack, visited map[mazelib.Coordinate]bool, co mazelib.Coordinate) (mazelib.Survey, mazelib.Coordinate, error) {
+	//add the reverse move to the breadcrumbs stack
+	breadcrumbs.Push(move)
+	//perform the move
+	survey, err := Move(move)
+	//mark the new room as visited
+	co = co.TranformByMove(move)
+	visited[co] = true
+	return survey, co, err
+}
+//return a possible move toward not already visited room
+func getValidMove(survey mazelib.Survey, visited map[mazelib.Coordinate]bool, co mazelib.Coordinate) (string, error) {
+	if move := "down"; !survey.Bottom && !visited[co.TranformByMove(move)] {
+		return move, nil
+	}
+	if move := "right"; !survey.Right && !visited[co.TranformByMove(move)] {
+		return move, nil
+	}
+	if move := "up"; !survey.Top && !visited[co.TranformByMove(move)] {
+		return move, nil
+	}
+	if move := "left"; !survey.Left && !visited[co.TranformByMove(move)] {
+		return move, nil
+	}
+	return "", errors.New("No move is allowed")
+}
+//reverse a move to enable taking a step back
+//when reverse walking the breadcrumbs 
+func ReverseMove(move string) string {
+	switch move {
+	case "down":
+		return "up"
+	case "up":
+		return "down"
+	case "right":
+		return "left"
+	case "left":
+		return "right"
+	}
+	return ""
 }

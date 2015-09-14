@@ -28,8 +28,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-// TODO: Your name here
-var AuthorName = ""
+var AuthorName = "Moukarram Kabbash"
 
 var CfgFile string
 

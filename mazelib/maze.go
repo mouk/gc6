@@ -31,6 +31,26 @@ type Coordinate struct {
 	Y int `json:"y"`
 }
 
+func (c *Coordinate) TranformByMove(move string) Coordinate {
+	x := c.X
+	y := c.Y
+	switch move {
+	case "up":
+		y = y - 1
+	case "right":
+		x = x + 1
+	case "left":
+		x = x - 1
+	case "down":
+		y = y + 1
+	}
+	return Coordinate{x, y}
+}
+
+func (c *Coordinate) ToKey() string {
+	return fmt.Sprintf("%d %d", c.X, c.Y)
+}
+
 // Reply from the server to a request
 type Reply struct {
 	Survey  Survey `json:"survey"`
@@ -141,7 +161,7 @@ func PrintMaze(m MazeI) {
 			}
 			if s.Bottom {
 				if r.Treasure {
-					str += "⏅_"
+					str += "T " // "⏅_"
 				} else if r.Start {
 					str += "⏂_"
 				} else {
@@ -149,7 +169,7 @@ func PrintMaze(m MazeI) {
 				}
 			} else {
 				if r.Treasure {
-					str += "⏃ "
+					str += "T " //"⏃ "
 				} else if r.Start {
 					str += "⏀ "
 				} else {
